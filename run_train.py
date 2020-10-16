@@ -35,9 +35,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     exps = [
-            dict(trans_type=['reparam_w_tanh'], batch_size=[128],
+            dict(trans_type=['reparam_w_tanh'], batch_size=[32],
                  lr=[1e-3], weight_decay=[1e-6], z_dim=[8]),
-            dict(seed=[0, 1, 2, 3]),
+            dict(seed=[0]),
             dict(root=['data/rope']),
             ]
 

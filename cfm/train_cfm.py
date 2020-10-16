@@ -1,8 +1,10 @@
 import argparse
 import json
 import os
+import time
 from os.path import join, exists
 
+import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
@@ -41,7 +43,7 @@ def compute_cpc_loss(obs, obs_pos, encoder, trans, actions, device):
     neg_dists = -((z_next ** 2).sum(1).unsqueeze(1) - 2* neg_dot_products + (z ** 2).sum(1).unsqueeze(0))
     idxs = np.arange(bs)
     # Set to minus infinity entries when comparing z with z - will be zero when apply softmax
-    neg_dists[idxs, idxs] = float('-inf') # b x b+1
+    neg_dists[idxs, idxs] = float('-inf') # b x b
 
     pos_dot_products = (z_pos * z_next).sum(dim=1) # b
     pos_dists = -((z_pos ** 2).sum(1) - 2* pos_dot_products + (z_next ** 2).sum(1))
@@ -101,11 +103,11 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
 
-    folder_name = join('out', args.name)
+    folder_name = 'out/rope_' + str(int(time.time()))
     if not exists(folder_name):
         os.makedirs(folder_name)
 
-    writer = SummaryWriter(join(folder_name, 'data'))
+    writer = SummaryWriter(folder_name)
 
     save_args = vars(args)
     save_args['script'] = 'train_cfm'
@@ -114,9 +116,9 @@ def main():
 
     obs_dim = (3, 64, 64)
     if 'rope' in args.root:
-        action_dim = 4
-    elif 'cloth' in args.root:
         action_dim = 5
+    elif 'cloth' in args.root:
+        raise NotImplementedError()
     else:
         raise Exception('Invalid environment, or environment needed in root name')
 
@@ -139,7 +141,9 @@ def main():
     batch = next(iter(train_loader))
     obs, obs_next, _ = batch
     imgs = torch.stack((obs, obs_next), dim=1).view(-1, *obs.shape[1:])
-    cu.save_image(imgs * 0.5 + 0.5, join(folder_name, 'train_seq_img.png'), nrow=8)
+    example_images_path = join(folder_name, 'train_seq_img.png')
+    print(example_images_path)
+    cu.save_image(imgs * 0.5 + 0.5, example_images_path, nrow=8)
 
     best_test_loss = float('inf')
     itr = 0
@@ -178,12 +182,12 @@ if __name__ == '__main__':
     parser.add_argument('--root', type=str, default='data/rope', help='path to dataset (default: data/rope)')
 
     # Architecture Parameters
-    parser.add_argument('--trans_type', type=str, default='linear',
+    parser.add_argument('--trans_type', type=str, default='reparam_w_tanh',
                         help='linear | mlp | reparam_w | reparam_w_ortho_gs | reparam_w_ortho_cont | reparam_w_tanh (default: linear)')
 
     # Learning Parameters
     parser.add_argument('--lr', type=float, default=1e-3, help='base learning rate for batch size 128 (default: 1e-3)')
-    parser.add_argument('--weight_decay', type=float, default=0, help='default 0')
+    parser.add_argument('--weight_decay', type=float, default=1e-6, help='default 0')
     parser.add_argument('--epochs', type=int, default=30, help='default: 50')
     parser.add_argument('--log_interval', type=int, default=1, help='default: 1')
     parser.add_argument('--load_checkpoint', action='store_true')
@@ -192,11 +196,10 @@ if __name__ == '__main__':
     # negative samples are the other batch elements, so number of negative samples
     # is the same as the batch size
     parser.add_argument('--batch_size', type=int, default=128, help='default 128')
-    parser.add_argument('--z_dim', type=int, default=4, help='dimension of the latents')
+    parser.add_argument('--z_dim', type=int, default=32, help='dimension of the latents')
 
     # Other
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--name', type=str, default='rope', help='folder name results are stored into')
     args = parser.parse_args()
 
     assert args.trans_type in ['linear', 'mlp', 'reparam_w', 'reparam_w_ortho_gs', 'reparam_w_ortho_cont', 'reparam_w_tanh']

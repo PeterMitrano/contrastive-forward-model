@@ -1,3 +1,5 @@
+import pathlib
+import re
 import sys
 import os
 from os.path import join, dirname, basename
@@ -53,7 +55,7 @@ def compute_image_pairs(root):
         neg_samples_same_t[run] = dict()
         neg_samples_same_traj[run] = dict()
 
-        images = glob.glob(join(run, '*.png'))
+        images = glob.glob(join(run, '*.jpg'))
         images = sorted(images)
         all_images.extend(images)
         images = org_images(images)
@@ -80,9 +82,12 @@ def compute_image_pairs(root):
 def org_images(images):
     t_k = dict()
     for image in images:
-        img_split = image.split('_')
-        t = int(img_split[-2])
-        k = int(img_split[-1].split('.')[0])
+        path = pathlib.Path(image)
+        time_name = path.parts[-1]
+        run_name = path.parts[-2]
+        t = int(re.fullmatch(r"img_(\d+).jpg", time_name).group(1))
+        # k = int(re.fullmatch(r"run(\d+)", run_name).group(1))
+        k = 0
         if t not in t_k:
             t_k[t] = dict()
         assert k not in t_k[t]
@@ -118,7 +123,7 @@ def load_images(root):
 if __name__ == '__main__':
     roots = sys.argv[1:]
     for root in roots:
-        partition_dataset(root)
+        # partition_dataset(root)
 
         compute_image_pairs(join(root, 'train_data'))
         compute_image_pairs(join(root, 'test_data'))

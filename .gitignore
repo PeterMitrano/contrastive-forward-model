@@ -2,3 +2,5 @@ cfm.egg-info/
 __pycache__/
 data/
 out/
+venv*
+.idea
