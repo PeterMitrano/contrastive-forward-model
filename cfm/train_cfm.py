@@ -146,6 +146,10 @@ def main():
 
     best_test_loss = float('inf')
     itr = 0
+
+    # save once before any training
+    save_checkpoint(best_test_loss, encoder, folder_name, optimizer, trans)
+
     for epoch in range(args.epochs):
         # Train
         stats = train(encoder, trans, optimizer, train_loader, epoch, device)
@@ -164,15 +168,19 @@ def main():
             if test_loss <= best_test_loss:
                 best_test_loss = test_loss
 
-                checkpoint = {
-                    'encoder': encoder,
-                    'trans': trans,
-                    'optimizer': optimizer,
-                }
-                checkpoint_file = join(folder_name, 'checkpoint')
-                torch.save(checkpoint, checkpoint_file)
-                print('Saved {} with loss {}'.format(checkpoint_file, best_test_loss))
+                save_checkpoint(best_test_loss, encoder, folder_name, optimizer, trans)
     writer.close()
+
+
+def save_checkpoint(best_test_loss, encoder, folder_name, optimizer, trans):
+    checkpoint = {
+        'encoder': encoder,
+        'trans': trans,
+        'optimizer': optimizer,
+    }
+    checkpoint_file = join(folder_name, 'checkpoint')
+    torch.save(checkpoint, checkpoint_file)
+    print('Saved {} with loss {}'.format(checkpoint_file, best_test_loss))
 
 
 if __name__ == '__main__':
