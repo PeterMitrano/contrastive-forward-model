@@ -1,13 +1,12 @@
-import glob
-import pathlib
+import torch.utils.data as data
+import h5py
+import torch
+import numpy as np
 import pickle as pkl
-import re
+import os
+import glob
 from os.path import join, dirname
 
-import h5py
-import numpy as np
-import torch
-import torch.utils.data as data
 from torchvision.datasets.folder import default_loader
 
 
@@ -76,7 +75,7 @@ class DynamicsDataset(data.Dataset):
 
     def __init__(self, root, s=1):
         self.root = root
-        self.s = s  # Same 's' as in process_dataset.py (number of timesteps between current / next pairs)
+        self.s = s # Same 's' as in process_dataset.py (number of timesteps between current / next pairs)
 
         with open(join(root, f'pos_neg_pairs_{s}.pkl'), 'rb') as f:
             data = pkl.load(f)
@@ -89,9 +88,8 @@ class DynamicsDataset(data.Dataset):
 
         # Normalization of actions for different datasets
         if 'rope' in root:
-            self.mean = np.array([1.20801147e+02, 1.06006373e+02, 3.04691925e+00, 4.37977447e-02, 9.80879541e-01])
-            self.std = np.array([44.06082445, 29.72997166, 1.82283991, 0.06528637, 0.13694841])
-
+            self.mean = np.array([0.5, 0.5, 0., 0.])
+            self.std = np.array([0.5, 0.5, 1, 1])
         elif 'cloth' in root:
             self.mean = np.array([0.5, 0.5, 0., 0., 0.])
             self.std = np.array([0.5, 0.5, 1, 1, 1])
@@ -112,11 +110,15 @@ class DynamicsDataset(data.Dataset):
         obs, obs_next = self._get_image(obs_file), self._get_image(obs_next_file)
         actions = np.load(action_file)
 
-        path = pathlib.Path(obs_next_file)
-        time_name = path.parts[-1]
-        t = int(re.fullmatch(r"img_(\d+).jpg", time_name).group(1))
+        fsplit = obs_next_file.split('_')
+        t = int(fsplit[-2])
+        k = int(fsplit[-1].split('.')[0])
+     #   assert k == 0
+     #   assert t - self.s >= 0
+
+     #   action = actions[t - self.s:t, k]
         assert self.s == 1
-        action = actions[t-1]
+        action = actions[t - 1, k]
         action = (action - self.mean) / self.std
 
         return obs, obs_next, torch.FloatTensor(action)
@@ -129,7 +131,7 @@ class ImageDataset(data.Dataset):
     """
 
     def __init__(self, root, include_state=False, loader=default_loader,
-                 transform=None):
+                  transform=None):
         self.root = root
         self.include_state = include_state
         self.loader = loader
@@ -157,8 +159,7 @@ class ImageDataset(data.Dataset):
             folder = dirname(img_path)
             states = np.load(join(folder, 'env_states.npy'))
             t = int(img_path.split('_')[-2])
-            return self._get_image(index), self.transform(self.loader(self.image_paths[index])), torch.FloatTensor(
-                states[t])
+            return self._get_image(index), self.transform(self.loader(self.image_paths[index])), torch.FloatTensor(states[t])
         return self._get_image(index)
 
     def get_item_by_path(self, path):
@@ -170,7 +171,6 @@ class TrajectoryDataset(data.Dataset):
     Dataset that returns full trajectories with observations, actions, and
     true simulation states
     """
-
     def __init__(self, root):
         super().__init__()
         self.root = root

@@ -4,20 +4,18 @@ import os
 import time
 from os.path import join, exists
 
-import matplotlib.pyplot as plt
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import torch.utils.data as data
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-import torch
-import torch.nn.functional as F
-import torch.nn as nn
-import torch.utils.data as data
-import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
-
-from cfm.dataset import DynamicsDataset
 import cfm.models as cm
 import cfm.utils as cu
+from cfm.dataset import DynamicsDataset
 
 
 def get_dataloaders():
@@ -39,19 +37,19 @@ def compute_cpc_loss(obs, obs_pos, encoder, trans, actions, device):
     z, z_pos = encoder(obs), encoder(obs_pos)  # b x z_dim
     z_next = trans(z, actions)
 
-    neg_dot_products = torch.mm(z_next, z.t()) # b x b
-    neg_dists = -((z_next ** 2).sum(1).unsqueeze(1) - 2* neg_dot_products + (z ** 2).sum(1).unsqueeze(0))
+    neg_dot_products = torch.mm(z_next, z.t())  # b x b
+    neg_dists = -((z_next ** 2).sum(1).unsqueeze(1) - 2 * neg_dot_products + (z ** 2).sum(1).unsqueeze(0))
     idxs = np.arange(bs)
     # Set to minus infinity entries when comparing z with z - will be zero when apply softmax
-    neg_dists[idxs, idxs] = float('-inf') # b x b
+    neg_dists[idxs, idxs] = float('-inf')  # b x b
 
-    pos_dot_products = (z_pos * z_next).sum(dim=1) # b
-    pos_dists = -((z_pos ** 2).sum(1) - 2* pos_dot_products + (z_next ** 2).sum(1))
-    pos_dists = pos_dists.unsqueeze(1) # b x 1
+    pos_dot_products = (z_pos * z_next).sum(dim=1)  # b
+    pos_dists = -((z_pos ** 2).sum(1) - 2 * pos_dot_products + (z_next ** 2).sum(1))
+    pos_dists = pos_dists.unsqueeze(1)  # b x 1
 
-    dists = torch.cat((neg_dists, pos_dists), dim=1) # b x b+1
-    dists = F.log_softmax(dists, dim=1) # b x b+1
-    loss = -dists[:, -1].mean() # Get last column with is the true pos sample
+    dists = torch.cat((neg_dists, pos_dists), dim=1)  # b x b+1
+    dists = F.log_softmax(dists, dim=1)  # b x b+1
+    loss = -dists[:, -1].mean()  # Get last column with is the true pos sample
 
     return loss
 
@@ -66,8 +64,8 @@ def train(encoder, trans, optimizer, train_loader, epoch, device):
     parameters = list(encoder.parameters()) + list(trans.parameters())
     for batch in train_loader:
         obs, obs_pos, actions = [b.to(device) for b in batch]
-        loss  = compute_cpc_loss(obs, obs_pos, encoder,
-                                 trans, actions, device)
+        loss = compute_cpc_loss(obs, obs_pos, encoder,
+                                trans, actions, device)
         optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(parameters, 20)
@@ -116,9 +114,9 @@ def main():
 
     obs_dim = (3, 64, 64)
     if 'rope' in args.root:
-        action_dim = 5
+        action_dim = 4
     elif 'cloth' in args.root:
-        raise NotImplementedError()
+        action_dim = 5
     else:
         raise Exception('Invalid environment, or environment needed in root name')
 
@@ -128,6 +126,7 @@ def main():
     trans = cm.Transition(args.z_dim, action_dim, trans_type=args.trans_type).to(device)
     parameters = list(encoder.parameters()) + list(trans.parameters())
     optimizer = optim.Adam(parameters, lr=args.lr, weight_decay=args.weight_decay)
+    print(folder_name)
 
     if args.load_checkpoint:
         checkpoint = torch.load(join(folder_name, 'checkpoint'))
@@ -170,8 +169,9 @@ def main():
                     'trans': trans,
                     'optimizer': optimizer,
                 }
-                torch.save(checkpoint, join(folder_name, 'checkpoint'))
-                print('Saved models with loss', best_test_loss)
+                checkpoint_file = join(folder_name, 'checkpoint')
+                torch.save(checkpoint, checkpoint_file)
+                print('Saved {} with loss {}'.format(checkpoint_file, best_test_loss))
     writer.close()
 
 
