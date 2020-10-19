@@ -4,14 +4,14 @@ import pathlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-
 from cfm.dataset import DynamicsDataset
 
 
 def unnormalize_action(dataset, action):
     partially_unnormalized = (action.cpu() * dataset.std + dataset.mean)
     x, y, dx, dy = partially_unnormalized
-    return (x * 64) * 1.0, (y * 64) * 1.0, -dy * 64 / 10, dx * 64 / 10
+    # checked with the original authors code, and yes we do need to flip y and swap x/y
+    return (x * 63) * 1.0, (y * 63) * 1.0, -dy * 63 / 2, dx * 63 / 2
 
 
 # some plotting utilities
