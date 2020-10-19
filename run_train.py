@@ -28,6 +28,7 @@ def worker(gpu_id, max_per_gpu, exps):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--root', default='data/rope')
     parser.add_argument('--n_gpus', type=int, default=4)
     parser.add_argument('--max_per_gpu', type=int, default=1)
     parser.add_argument('--start', type=int, default=0)
@@ -35,11 +36,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     exps = [
-            dict(trans_type=['reparam_w_tanh'], batch_size=[128],
-                 lr=[1e-3], weight_decay=[1e-6], z_dim=[8]),
-            dict(seed=[0, 1, 2, 3]),
-            dict(root=['data/rope']),
-            ]
+        dict(trans_type=['reparam_w_tanh'], batch_size=[128],
+             lr=[1e-3], weight_decay=[1e-6], z_dim=[8]),
+        dict(seed=[0, 1, 2, 3]),
+        dict(root=[args.root]),
+    ]
 
     exps = construct_variants(exps)
 
