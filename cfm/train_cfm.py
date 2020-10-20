@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import time
 from os.path import join, exists
 
 import numpy as np
@@ -101,7 +102,8 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
 
-    folder_name = join('out', args.name)
+    folder_name = join('out', args.name, str(int(time.time())))
+    print(folder_name)
     if not exists(folder_name):
         os.makedirs(folder_name)
 
